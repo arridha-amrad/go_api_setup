@@ -1,0 +1,56 @@
+package services
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"my-go-api/internal/dto"
+	"my-go-api/internal/models"
+	"my-go-api/internal/repositories"
+	"my-go-api/pkg/utils"
+)
+
+type UserService struct {
+	userRepo *repositories.UserRepository
+}
+
+func NewUserService(userRepo *repositories.UserRepository) *UserService {
+	return &UserService{userRepo: userRepo}
+}
+
+func (u *UserService) GetAllUsers(ctx context.Context) ([]models.User, error) {
+	return u.userRepo.GetAll(ctx)
+}
+
+func (u *UserService) CreateUser(ctx context.Context, req dto.CreateUser) (*models.User, error) {
+
+	existingUser, err := u.userRepo.GetByUsername(ctx, req.Username)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	if existingUser != nil {
+		return nil, errors.New("username is registered")
+	}
+
+	existingUser, err = u.userRepo.GetByEmail(ctx, req.Email)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	if existingUser != nil {
+		return nil, errors.New("email is registered")
+	}
+
+	hashedPassword, err := utils.HashPassword(req.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := u.userRepo.Create(ctx, req.Name, req.Username, req.Email, hashedPassword)
+	if err != nil {
+		fmt.Println(err)
+		return nil, errors.New("create user failed")
+	}
+
+	return user, nil
+}
