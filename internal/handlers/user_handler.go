@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"database/sql"
+	"errors"
 	"my-go-api/internal/dto"
 	"my-go-api/internal/services"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 )
 
 type UserHandler struct {
@@ -19,6 +22,24 @@ func NewUserHandler(
 	validate *validator.Validate,
 ) *UserHandler {
 	return &UserHandler{service: service, validate: validate}
+}
+
+func (h *UserHandler) GetUserById(c *gin.Context) {
+	userId, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user id"})
+		return
+	}
+	user, err := h.service.GetUserById(c.Request.Context(), userId)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Something went wrong"})
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"user": user})
 }
 
 func (h *UserHandler) GetAll(c *gin.Context) {

@@ -9,6 +9,8 @@ import (
 	"my-go-api/internal/models"
 	"my-go-api/internal/repositories"
 	"my-go-api/pkg/utils"
+
+	"github.com/google/uuid"
 )
 
 type UserService struct {
@@ -17,6 +19,14 @@ type UserService struct {
 
 func NewUserService(userRepo *repositories.UserRepository) *UserService {
 	return &UserService{userRepo: userRepo}
+}
+
+func (u *UserService) GetUserById(ctx context.Context, userId uuid.UUID) (*models.User, error) {
+	user, err := u.userRepo.GetById(ctx, userId)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
 }
 
 func (u *UserService) GetAllUsers(ctx context.Context) ([]models.User, error) {
