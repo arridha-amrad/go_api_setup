@@ -19,7 +19,65 @@ func NewAuthHandler(service *services.AuthService, userService *services.UserSer
 	return &AuthHandler{service: service, userService: userService}
 }
 
-func (h AuthHandler) GetAuth(c *gin.Context) {
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	// check if token is valid
+	cookie, err := c.Cookie("refresh-token")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid cookie"})
+		return
+	}
+	// is valid with bearer prefix
+	const bearerPrefix = "Bearer "
+	if !strings.HasPrefix(cookie, bearerPrefix) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid cookie format"})
+		return
+	}
+	tokenStr := strings.TrimSpace(strings.TrimPrefix(cookie, bearerPrefix))
+	payload, err := h.service.ValidateToken(tokenStr, "refresh")
+	if err != nil {
+		c.SetCookie("refresh-token", "", -1, "/", "", false, true)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+	// is valid against stored token
+	if err = h.service.VerifyRefreshToken(c.Request.Context(), payload.TokenId, payload.UserId); err != nil {
+		c.SetCookie("refresh-token", "", -1, "/", "", false, true)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	// token valid, then generate new accToken and refToken
+	tokenId := uuid.New()
+	tokenAcc, err := h.service.GenerateToken(payload.UserId, tokenId.String(), "access")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	tokenRef, err := h.service.GenerateToken(payload.UserId, tokenId.String(), "refresh")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	h.service.StoreRefreshToken(c.Request.Context(), "", payload.UserId, tokenRef)
+
+	// delete old token
+	tokenIdUuid, err := uuid.Parse(payload.TokenId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	h.service.DeleteRefreshToken(c.Request.Context(), tokenIdUuid)
+
+	c.SetCookie("refresh-token", "Bearer "+tokenRef, 3600*24*365, "/", "", false, true)
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": "Bearer " + tokenAcc,
+	})
+
+}
+
+func (h *AuthHandler) GetAuth(c *gin.Context) {
 	value, exist := c.Get("authenticatedUserId")
 	if !exist {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "validated body not exists"})
@@ -38,7 +96,7 @@ func (h AuthHandler) GetAuth(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"user": user})
 }
 
-func (h AuthHandler) Login(c *gin.Context) {
+func (h *AuthHandler) Login(c *gin.Context) {
 	value, exist := c.Get("validatedBody")
 	if !exist {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "validated body not exists"})
@@ -66,12 +124,13 @@ func (h AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	tokenAcc, err := h.service.GenerateToken(existingUser.ID.String(), "access")
+	tokenId := uuid.New()
+	tokenAcc, err := h.service.GenerateToken(existingUser.ID.String(), tokenId.String(), "access")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	tokenRef, err := h.service.GenerateToken(existingUser.ID.String(), "refresh")
+	tokenRef, err := h.service.GenerateToken(existingUser.ID.String(), tokenId.String(), "refresh")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

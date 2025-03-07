@@ -42,3 +42,6 @@ db-migrate-up:
 
 db-migrate-down:
 	@migrate -path=$(MIGRATION_PATH) -database=$(DB_URL) down $(filter-out $@,$(MAKECMDGOALS))
+
+db-migrate-force:
+	@migrate -path=$(MIGRATION_PATH) -database=$(DB_URL) force $(filter-out $@,$(MAKECMDGOALS))

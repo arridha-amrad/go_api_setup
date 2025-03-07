@@ -20,7 +20,9 @@ func RegisterRoutes(db *sql.DB, validate *validator.Validate) *gin.Engine {
 	userService := services.NewUserService(userRepo)
 	userHandler := handlers.NewUserHandler(userService)
 
-	authService := services.NewAuthService(userRepo)
+	tokenRepo := repositories.NewTokenRepository(db)
+
+	authService := services.NewAuthService(userRepo, tokenRepo)
 	authHandler := handlers.NewAuthHandler(authService, userService)
 
 	md := middleware.RegisterValidationMiddleware(validate)
@@ -44,6 +46,7 @@ func RegisterRoutes(db *sql.DB, validate *validator.Validate) *gin.Engine {
 		{
 			v1Auth.GET("", mdT.RequireAuth, authHandler.GetAuth)
 			v1Auth.POST("", md.Login, authHandler.Login)
+			v1Auth.POST("/refresh-token", authHandler.RefreshToken)
 		}
 	}
 

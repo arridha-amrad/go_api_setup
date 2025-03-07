@@ -2,13 +2,10 @@
 package utils
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 )
 
 // Define a custom type for TokenType
@@ -27,11 +24,7 @@ func SetTokenSecretKey(key string) {
 	secretKey = key
 }
 
-func GenerateToken(userId string, tokenType TokenType) (string, error) {
-	tokenId, err := uuid.NewRandom()
-	if err != nil {
-		return "", errors.New("failed to generate uuid")
-	}
+func GenerateToken(userId string, tokenId string, tokenType TokenType) (string, error) {
 	claims := jwt.MapClaims{
 		"tokenId": tokenId,
 		"type":    string(tokenType),
@@ -61,9 +54,4 @@ func ValidateToken(tokenString string) (*jwt.MapClaims, error) {
 	}
 
 	return nil, errors.New("invalid token")
-}
-
-func HashToken(token string) string {
-	hash := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(hash[:])
 }

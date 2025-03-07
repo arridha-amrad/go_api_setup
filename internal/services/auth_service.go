@@ -9,34 +9,76 @@ import (
 	"my-go-api/pkg/utils"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type AuthService struct {
-	userRepo *repositories.UserRepository
+	userRepo  *repositories.UserRepository
+	tokenRepo *repositories.TokenRepository
 }
 
-func NewAuthService(userRepo *repositories.UserRepository) *AuthService {
+func NewAuthService(userRepo *repositories.UserRepository, tokenRepo *repositories.TokenRepository) *AuthService {
 	return &AuthService{
-		userRepo: userRepo,
+		userRepo:  userRepo,
+		tokenRepo: tokenRepo,
 	}
 }
 
-func (s *AuthService) GenerateToken(userId string, tokenType string) (string, error) {
+func (s *AuthService) StoreRefreshToken(ctx context.Context, tokenId, userId, value string) error {
+	_, err := s.tokenRepo.Insert(ctx, tokenId, userId, value)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *AuthService) DeleteRefreshToken(ctx context.Context, tokenId uuid.UUID) (bool, error) {
+	ok, err := s.tokenRepo.Remove(ctx, tokenId)
+	if err != nil {
+		return false, err
+	}
+	return ok, nil
+}
+
+func (s *AuthService) VerifyRefreshToken(ctx context.Context, tokenId, userId string) error {
+	existingToken, err := s.tokenRepo.GetByTokenId(ctx, tokenId)
+	if err != nil {
+		return err
+	}
+
+	if existingToken.UserId != userId || !existingToken.IsRevoked {
+		return errors.New("token invalid")
+	}
+
+	payload, err := s.ValidateToken(existingToken.Value, "refresh")
+
+	if err != nil {
+		return err
+	}
+
+	if payload.UserId == userId && payload.TokenId == tokenId {
+		return nil
+	}
+	return errors.New("token data is invalid")
+
+}
+
+func (s *AuthService) GenerateToken(userId, tokenId, tokenType string) (string, error) {
 
 	var myTokenType utils.TokenType
 	switch tokenType {
 	case "refresh":
 		myTokenType = utils.RefreshToken
-		break
 	case "access":
 		myTokenType = utils.AccessToken
 	case "link":
 		myTokenType = utils.LinkToken
 	default:
-		return "", errors.New("Undefined token")
+		return "", errors.New("undefined token")
 	}
 
-	token, err := utils.GenerateToken(userId, myTokenType)
+	token, err := utils.GenerateToken(userId, tokenId, myTokenType)
 	if err != nil {
 		return "", errors.New("failed to generate token")
 	}
@@ -74,31 +116,46 @@ func (s *AuthService) GetUserByIdentity(ctx context.Context, identity string) (*
 	return user, nil
 }
 
-func (s *AuthService) ValidateToken(tokenString string, tokenType string) (string, error) {
+type TokenPayload struct {
+	UserId  string
+	TokenId string
+}
+
+func (s *AuthService) ValidateToken(tokenString string, tokenType string) (*TokenPayload, error) {
+
 	claims, err := utils.ValidateToken(tokenString)
 	if err != nil {
-		return "", errors.New("invalid token")
+		return nil, errors.New("invalid token")
 	}
 
 	expireTime, ok := (*claims)["exp"].(float64)
 	if !ok {
-		return "", errors.New("failed to covert to float64")
+		return nil, errors.New("failed to covert to float64")
 	}
 	expirationTime := time.Unix(int64(expireTime), 0)
 	if expirationTime.Before(time.Now()) {
-		return "", errors.New("token expired")
+		return nil, errors.New("token expired")
 	}
 
 	currTokenType, ok := (*claims)["type"].(string)
 
 	if !ok || currTokenType != tokenType {
-		return "", errors.New("failed to recognize the token")
+		return nil, errors.New("failed to recognize the token")
 	}
 
 	userId, ok := (*claims)["user_id"].(string)
 	if !ok {
-		return "", errors.New("failed to covert to string")
+		return nil, errors.New("failed to covert to string")
 	}
 
-	return userId, nil
+	tokenId, ok := (*claims)["token_id"].(string)
+	if !ok {
+		return nil, errors.New("failed to covert to string")
+	}
+
+	payload := &TokenPayload{
+		UserId:  userId,
+		TokenId: tokenId,
+	}
+	return payload, nil
 }

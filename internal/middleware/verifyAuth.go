@@ -34,14 +34,14 @@ func (m VerificationAuthTokenMiddleware) RequireAuth(c *gin.Context) {
 	}
 
 	tokenStr := strings.TrimSpace(strings.TrimPrefix(authorization, bearerPrefix))
-	userId, err := m.authService.ValidateToken(tokenStr, "access")
+	payload, err := m.authService.ValidateToken(tokenStr, "access")
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		c.Abort()
 		return
 	}
 
-	c.Set("authenticatedUserId", userId)
+	c.Set("authenticatedUserId", payload.UserId)
 	c.Next()
 
 }
