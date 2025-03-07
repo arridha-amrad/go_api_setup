@@ -66,10 +66,14 @@ func (h AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	tokenAcc, errTacc := h.service.GenerateToken(existingUser.ID.String())
-	tokenRef, errTref := h.service.GenerateToken(existingUser.ID.String())
-	if errTacc != nil || errTref != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
+	tokenAcc, err := h.service.GenerateToken(existingUser.ID.String(), "access")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	tokenRef, err := h.service.GenerateToken(existingUser.ID.String(), "refresh")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 

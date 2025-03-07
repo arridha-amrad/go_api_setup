@@ -21,6 +21,14 @@ func NewUserService(userRepo *repositories.UserRepository) *UserService {
 	return &UserService{userRepo: userRepo}
 }
 
+func (u *UserService) UpdateUser(ctx context.Context, user *models.User) (*models.User, error) {
+	user, err := u.userRepo.Update(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+	return user, err
+}
+
 func (u *UserService) GetUserById(ctx context.Context, userId uuid.UUID) (*models.User, error) {
 	user, err := u.userRepo.GetById(ctx, userId)
 	if err != nil {

@@ -21,8 +21,22 @@ func NewAuthService(userRepo *repositories.UserRepository) *AuthService {
 	}
 }
 
-func (s *AuthService) GenerateToken(userId string) (string, error) {
-	token, err := utils.GenerateToken(userId)
+func (s *AuthService) GenerateToken(userId string, tokenType string) (string, error) {
+
+	var myTokenType utils.TokenType
+	switch tokenType {
+	case "refresh":
+		myTokenType = utils.RefreshToken
+		break
+	case "access":
+		myTokenType = utils.AccessToken
+	case "link":
+		myTokenType = utils.LinkToken
+	default:
+		return "", errors.New("Undefined token")
+	}
+
+	token, err := utils.GenerateToken(userId, myTokenType)
 	if err != nil {
 		return "", errors.New("failed to generate token")
 	}
@@ -60,7 +74,7 @@ func (s *AuthService) GetUserByIdentity(ctx context.Context, identity string) (*
 	return user, nil
 }
 
-func (s *AuthService) ValidateToken(tokenString string) (string, error) {
+func (s *AuthService) ValidateToken(tokenString string, tokenType string) (string, error) {
 	claims, err := utils.ValidateToken(tokenString)
 	if err != nil {
 		return "", errors.New("invalid token")
@@ -73,6 +87,12 @@ func (s *AuthService) ValidateToken(tokenString string) (string, error) {
 	expirationTime := time.Unix(int64(expireTime), 0)
 	if expirationTime.Before(time.Now()) {
 		return "", errors.New("token expired")
+	}
+
+	currTokenType, ok := (*claims)["type"].(string)
+
+	if !ok || currTokenType != tokenType {
+		return "", errors.New("failed to recognize the token")
 	}
 
 	userId, ok := (*claims)["user_id"].(string)

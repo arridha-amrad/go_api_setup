@@ -22,7 +22,7 @@ func VerifyPassword(hashedPassword, password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 }
 
-func PasswordValidator(fl validator.FieldLevel) bool {
+func ValidatePassword(fl validator.FieldLevel) bool {
 	password := fl.Field().String()
 
 	if len(password) < 5 {

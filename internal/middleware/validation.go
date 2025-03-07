@@ -60,3 +60,49 @@ func (m *middleware) CreateUser(c *gin.Context) {
 	c.Set("validatedBody", input)
 	c.Next()
 }
+
+func (m *middleware) UpdateUser(c *gin.Context) {
+	var input map[string]any
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"errors": err.Error()})
+		c.Abort()
+		return
+	}
+
+	valErrors := make(map[string]string)
+
+	if username, exists := input["username"].(string); exists {
+		if err := m.validate.Var(username, "required,min=5"); err != nil {
+			valErrors["username"] = "a minimum of 5 characters is required"
+		}
+	}
+	if name, exists := input["name"].(string); exists {
+		if err := m.validate.Var(name, "required,min=5"); err != nil {
+			valErrors["name"] = "a minimum of 5 characters is required"
+		}
+	}
+	if email, exists := input["email"].(string); exists {
+		if err := m.validate.Var(email, "required,email"); err != nil {
+			valErrors["email"] = "invalid email"
+		}
+	}
+	if password, exists := input["password"].(string); exists {
+		if err := m.validate.Var(password, "required,strongPassword"); err != nil {
+			valErrors["password"] = "a minimum of 5 characters including an uppercase letter, a lowercase letter, and a number is required"
+		}
+	}
+	if role, exists := input["role"].(string); exists {
+		if err := m.validate.Var(role, "required,oneof=user admin"); err != nil {
+			valErrors["role"] = "unrecognized role"
+		}
+	}
+
+	if len(valErrors) > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"errors": valErrors})
+		c.Abort()
+		return
+	}
+
+	c.Set("validatedBody", input)
+	c.Next()
+}

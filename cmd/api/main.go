@@ -16,7 +16,7 @@ func main() {
 	}
 
 	utils.SetTokenSecretKey(cfg.SecretKey)
-	db, err := database.Connect(cfg.DB)
+	db, err := database.Connect(cfg.DB.DbUrl, cfg.DB.MaxIdleTime, cfg.DB.MaxOpenConns, cfg.DB.MaxIdleConns)
 	if err != nil {
 		log.Panic(err)
 	}

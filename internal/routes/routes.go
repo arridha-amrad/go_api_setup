@@ -38,6 +38,7 @@ func RegisterRoutes(db *sql.DB, validate *validator.Validate) *gin.Engine {
 			v1Users.GET("", userHandler.GetAll)
 			v1Users.POST("", md.CreateUser, userHandler.Create)
 			v1Users.GET("/:id", userHandler.GetUserById)
+			v1Users.PUT("/:id", md.UpdateUser, userHandler.Update)
 		}
 		v1Auth := v1.Group("/auth")
 		{

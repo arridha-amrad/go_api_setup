@@ -93,3 +93,16 @@ func (s *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 	}
 	return user, nil
 }
+
+func (s *UserRepository) Update(ctx context.Context, user *models.User) (*models.User, error) {
+	query := `
+		UPDATE users
+		SET username=$1, email=$2, name=$3, password=$4, role=$5
+		WHERE id=$6 
+		RETURNING id, name, username, email, password, provider, role, created_at, updated_at
+	`
+	if err := s.db.QueryRowContext(ctx, query, user.Username, user.Email, user.Name, user.Password, user.Role, user.ID).Scan(&user.ID, &user.Name, &user.Username, &user.Email, &user.Password, &user.Provider, &user.Role, &user.CreatedAt, &user.UpdatedAt); err != nil {
+		return nil, err
+	}
+	return user, nil
+}

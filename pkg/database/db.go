@@ -3,22 +3,21 @@ package database
 import (
 	"context"
 	"database/sql"
-	"my-go-api/internal/config"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib" // Import the pgx driver
 )
 
-func Connect(cfg config.DbConfig) (*sql.DB, error) {
+func Connect(url, maxIdleTime string, maxOpenConns, maxIdleConns int) (*sql.DB, error) {
 
-	db, err := sql.Open("pgx", cfg.DbUrl)
+	db, err := sql.Open("pgx", url)
 	if err != nil {
 		return nil, err
 	}
 
-	db.SetMaxOpenConns(cfg.MaxOpenConns)
-	db.SetMaxIdleConns(cfg.MaxIdleConns)
-	duration, err := time.ParseDuration(cfg.MaxIdleTime)
+	db.SetMaxOpenConns(maxOpenConns)
+	db.SetMaxIdleConns(maxIdleConns)
+	duration, err := time.ParseDuration(maxIdleTime)
 	if err != nil {
 		return nil, err
 	}

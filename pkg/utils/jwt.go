@@ -2,11 +2,23 @@
 package utils
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
-	"log"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+)
+
+// Define a custom type for TokenType
+type TokenType string
+
+// Declare valid values (like a TypeScript union)
+const (
+	LinkToken    TokenType = "link"
+	AccessToken  TokenType = "access"
+	RefreshToken TokenType = "refresh"
 )
 
 var secretKey string
@@ -15,8 +27,14 @@ func SetTokenSecretKey(key string) {
 	secretKey = key
 }
 
-func GenerateToken(userId string) (string, error) {
+func GenerateToken(userId string, tokenType TokenType) (string, error) {
+	tokenId, err := uuid.NewRandom()
+	if err != nil {
+		return "", errors.New("failed to generate uuid")
+	}
 	claims := jwt.MapClaims{
+		"tokenId": tokenId,
+		"type":    string(tokenType),
 		"user_id": userId,
 		"exp":     time.Now().Add(24 * time.Hour).UnixMilli(),
 	}
@@ -26,7 +44,6 @@ func GenerateToken(userId string) (string, error) {
 }
 
 func ValidateToken(tokenString string) (*jwt.MapClaims, error) {
-	log.Println(secretKey)
 	token, err := jwt.ParseWithClaims(tokenString, &jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(secretKey), nil
 	})
@@ -44,4 +61,9 @@ func ValidateToken(tokenString string) (*jwt.MapClaims, error) {
 	}
 
 	return nil, errors.New("invalid token")
+}
+
+func HashToken(token string) string {
+	hash := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(hash[:])
 }

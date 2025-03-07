@@ -10,7 +10,7 @@ func Init() *validator.Validate {
 	validate := validator.New()
 
 	// Register custom validations
-	err := validate.RegisterValidation("strongPassword", utils.PasswordValidator)
+	err := validate.RegisterValidation("strongPassword", utils.ValidatePassword)
 	if err != nil {
 		panic(err) // Handle error during initialization
 	}
