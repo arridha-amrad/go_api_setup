@@ -1,0 +1,4 @@
+{
+  "makefile.configureOnOpen": false,
+  "thunder-client.multiRootWorkspaceName": "go_api_setup"
+}

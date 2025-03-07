@@ -8,8 +8,9 @@ import (
 )
 
 type Config struct {
-	DB   DbConfig
-	Port string
+	DB        DbConfig
+	Port      string
+	SecretKey string
 }
 
 type DbConfig struct {
@@ -18,6 +19,8 @@ type DbConfig struct {
 	MaxIdleConns int
 	MaxIdleTime  string
 }
+
+var SECRET_KEY string
 
 func LoadEnv() (*Config, error) {
 	env := os.Getenv("GO_ENV")
@@ -48,7 +51,9 @@ func LoadEnv() (*Config, error) {
 			MaxIdleConns: vMaxIdleConns,
 			MaxIdleTime:  os.Getenv("DB_MAX_IDLE_TIME"),
 		},
-		Port: os.Getenv("PORT"),
+		Port:      os.Getenv("PORT"),
+		SecretKey: os.Getenv("SECRET_KEY"),
 	}
+
 	return cfg, nil
 }

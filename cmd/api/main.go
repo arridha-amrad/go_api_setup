@@ -6,6 +6,7 @@ import (
 	"my-go-api/internal/routes"
 	"my-go-api/internal/validation"
 	"my-go-api/pkg/database"
+	"my-go-api/pkg/utils"
 )
 
 func main() {
@@ -14,6 +15,7 @@ func main() {
 		log.Fatalf("Could not load config: %v", err)
 	}
 
+	utils.SetTokenSecretKey(cfg.SecretKey)
 	db, err := database.Connect(cfg.DB)
 	if err != nil {
 		log.Panic(err)

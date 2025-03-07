@@ -3,6 +3,7 @@ package middleware
 import (
 	"errors"
 	"fmt"
+	"log"
 	"my-go-api/internal/dto"
 	"my-go-api/internal/validation"
 	"net/http"
@@ -20,15 +21,15 @@ func RegisterValidationMiddleware(validate *validator.Validate) *middleware {
 	return &middleware{validate: validate}
 }
 
-func (m *middleware) CreateUser(c *gin.Context) {
-	var input dto.CreateUser
+func (m *middleware) runValidation(c *gin.Context, input any) {
+	log.Println(input)
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"errors": err.Error()})
 		c.Abort()
 		return
 	}
 	if err := m.validate.Struct(input); err != nil {
-		validationErrors := err.(validator.ValidationErrors)
+		var validationErrors validator.ValidationErrors
 		var msgErrors = make(map[string]string)
 		if errors.As(err, &validationErrors) {
 			for _, e := range validationErrors {
@@ -44,6 +45,18 @@ func (m *middleware) CreateUser(c *gin.Context) {
 		c.Abort()
 		return
 	}
+}
+
+func (m *middleware) Login(c *gin.Context) {
+	var input dto.Login
+	m.runValidation(c, &input)
+	c.Set("validatedBody", input)
+	c.Next()
+}
+
+func (m *middleware) CreateUser(c *gin.Context) {
+	var input dto.CreateUser
+	m.runValidation(c, &input)
 	c.Set("validatedBody", input)
 	c.Next()
 }

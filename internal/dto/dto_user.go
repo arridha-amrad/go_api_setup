@@ -6,3 +6,8 @@ type CreateUser struct {
 	Username string `json:"username" validate:"required,min=5"`
 	Password string `json:"password" validate:"required,strongPassword"`
 }
+
+type Login struct {
+	Identity string `json:"identity" validate:"required"`
+	Password string `json:"password" validate:"required"`
+}

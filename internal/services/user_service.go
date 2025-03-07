@@ -34,7 +34,6 @@ func (u *UserService) GetAllUsers(ctx context.Context) ([]models.User, error) {
 }
 
 func (u *UserService) CreateUser(ctx context.Context, req dto.CreateUser) (*models.User, error) {
-
 	existingUser, err := u.userRepo.GetByUsername(ctx, req.Username)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err

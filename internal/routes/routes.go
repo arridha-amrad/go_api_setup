@@ -18,21 +18,31 @@ func RegisterRoutes(db *sql.DB, validate *validator.Validate) *gin.Engine {
 
 	userRepo := repositories.NewUserRepository(db)
 	userService := services.NewUserService(userRepo)
-	userHandler := handlers.NewUserHandler(userService, validate)
+	userHandler := handlers.NewUserHandler(userService)
+
+	authService := services.NewAuthService(userRepo)
+	authHandler := handlers.NewAuthHandler(authService, userService)
 
 	md := middleware.RegisterValidationMiddleware(validate)
+	mdT := middleware.RegisterTokenVerificationMiddleware(authService)
 
 	router.SetTrustedProxies([]string{"127.0.0.1"})
+
 	v1 := router.Group("/api/v1")
 	{
 		v1.GET("/", func(ctx *gin.Context) {
-			ctx.JSON(http.StatusOK, gin.H{"message": "Welcome"})
+			ctx.JSON(http.StatusOK, gin.H{"message": "Welcome to V1"})
 		})
 		v1Users := v1.Group("/users")
 		{
 			v1Users.GET("", userHandler.GetAll)
 			v1Users.POST("", md.CreateUser, userHandler.Create)
 			v1Users.GET("/:id", userHandler.GetUserById)
+		}
+		v1Auth := v1.Group("/auth")
+		{
+			v1Auth.GET("", mdT.RequireAuth, authHandler.GetAuth)
+			v1Auth.POST("", md.Login, authHandler.Login)
 		}
 	}
 

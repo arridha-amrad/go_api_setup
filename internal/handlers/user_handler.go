@@ -8,20 +8,13 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 )
 
-type UserHandler struct {
-	service  *services.UserService
-	validate *validator.Validate
-}
+type UserHandler struct{ service *services.UserService }
 
-func NewUserHandler(
-	service *services.UserService,
-	validate *validator.Validate,
-) *UserHandler {
-	return &UserHandler{service: service, validate: validate}
+func NewUserHandler(service *services.UserService) *UserHandler {
+	return &UserHandler{service: service}
 }
 
 func (h *UserHandler) GetUserById(c *gin.Context) {
@@ -57,18 +50,15 @@ func (h *UserHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Error"})
 		return
 	}
-
 	body, ok := value.(dto.CreateUser)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid type for validatedBody"})
 		return
 	}
-
 	user, err := h.service.CreateUser(c.Request.Context(), body)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"errors": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusCreated, user)
 }
