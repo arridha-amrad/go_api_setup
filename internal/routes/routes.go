@@ -13,7 +13,7 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-func RegisterRoutes(db *sql.DB, validate *validator.Validate) *gin.Engine {
+func RegisterRoutes(db *sql.DB, validate *validator.Validate, appUri string) *gin.Engine {
 	router := gin.Default()
 
 	userRepo := repositories.NewUserRepository(db)
@@ -22,7 +22,7 @@ func RegisterRoutes(db *sql.DB, validate *validator.Validate) *gin.Engine {
 
 	tokenRepo := repositories.NewTokenRepository(db)
 
-	authService := services.NewAuthService(userRepo, tokenRepo)
+	authService := services.NewAuthService(userRepo, tokenRepo, appUri)
 	authHandler := handlers.NewAuthHandler(authService, userService)
 
 	md := middleware.RegisterValidationMiddleware(validate)
@@ -38,7 +38,6 @@ func RegisterRoutes(db *sql.DB, validate *validator.Validate) *gin.Engine {
 		v1Users := v1.Group("/users")
 		{
 			v1Users.GET("", userHandler.GetAll)
-			v1Users.POST("", md.CreateUser, userHandler.Create)
 			v1Users.GET("/:id", userHandler.GetUserById)
 			v1Users.PUT("/:id", md.UpdateUser, userHandler.Update)
 		}
@@ -48,7 +47,7 @@ func RegisterRoutes(db *sql.DB, validate *validator.Validate) *gin.Engine {
 			v1Auth.POST("", md.Login, authHandler.Login)
 			v1Auth.POST("/refresh-token", authHandler.RefreshToken)
 			v1Auth.POST("/logout", authHandler.Logout)
-			v1Auth.POST("/send", authHandler.SendEmail)
+			v1Auth.POST("/register", md.CreateUser, authHandler.Register)
 		}
 	}
 

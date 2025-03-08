@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"my-go-api/internal/models"
 	"my-go-api/internal/repositories"
 	"my-go-api/pkg/utils"
@@ -14,19 +15,38 @@ import (
 )
 
 type AuthService struct {
+	appUri    string
 	userRepo  *repositories.UserRepository
 	tokenRepo *repositories.TokenRepository
 }
 
-func NewAuthService(userRepo *repositories.UserRepository, tokenRepo *repositories.TokenRepository) *AuthService {
+func NewAuthService(userRepo *repositories.UserRepository, tokenRepo *repositories.TokenRepository, appUri string) *AuthService {
 	return &AuthService{
 		userRepo:  userRepo,
 		tokenRepo: tokenRepo,
+		appUri:    appUri,
 	}
 }
 
-func (s *AuthService) SendAuthEmail() error {
-	err := utils.SendEmail()
+func (s *AuthService) SendVerificationEmail(name, email, token string) error {
+	var link = s.appUri + fmt.Sprintf("/email-verification?token=%s", token)
+	var subject = "Email verification"
+	var emailBody = fmt.Sprintf(
+		`Hello %s. 
+Please follow this link to verify your new account
+
+%s
+`, name, link)
+
+	err := utils.SendEmail(subject, emailBody, email)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *AuthService) SendAuthEmail(subject, body, address string) error {
+	err := utils.SendEmail(subject, body, address)
 	if err != nil {
 		return err
 	}

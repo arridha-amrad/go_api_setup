@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"my-go-api/internal/constants"
 	"my-go-api/internal/dto"
@@ -57,12 +58,34 @@ func getCookies(c *gin.Context) (*Cookie, error) {
 	}, nil
 }
 
-func (h *AuthHandler) SendEmail(c *gin.Context) {
-	err := h.service.SendAuthEmail()
+func (h *AuthHandler) Register(c *gin.Context) {
+	value, exist := c.Get("validatedBody")
+	if !exist {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Error"})
+		return
+	}
+	body, ok := value.(dto.CreateUser)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid type for validatedBody"})
+		return
+	}
+	user, err := h.userService.CreateUser(c.Request.Context(), body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"errors": err.Error()})
+		return
+	}
+	token, err := h.service.GenerateToken(user.ID)
 	if err != nil {
 		log.Println(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"errors": "Something went wrong"})
+		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "sent"})
+	if err := h.service.SendVerificationEmail(user.Name, user.Email, token); err != nil {
+		log.Println(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"errors": "Something went wrong"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"message": fmt.Sprintf("An email has been sent to %s. Please follow the instruction to verify your account.", user.Email)})
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {

@@ -28,7 +28,7 @@ func main() {
 	log.Println("Database connection pool established")
 
 	validate := validation.Init()
-	router := routes.RegisterRoutes(db, validate)
+	router := routes.RegisterRoutes(db, validate, cfg.AppUri)
 
 	if err := router.Run(":" + cfg.Port); err != nil {
 		log.Fatalf("Could not start server: %v", err)
