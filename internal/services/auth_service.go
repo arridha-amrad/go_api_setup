@@ -25,6 +25,14 @@ func NewAuthService(userRepo *repositories.UserRepository, tokenRepo *repositori
 	}
 }
 
+func (s *AuthService) SendAuthEmail() error {
+	err := utils.SendEmail()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *AuthService) StoreRefreshToken(ctx context.Context, userId, deviceId uuid.UUID, hash string) error {
 	_, err := s.tokenRepo.Insert(ctx, userId, deviceId, hash)
 	if err != nil {

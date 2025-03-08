@@ -57,6 +57,14 @@ func getCookies(c *gin.Context) (*Cookie, error) {
 	}, nil
 }
 
+func (h *AuthHandler) SendEmail(c *gin.Context) {
+	err := h.service.SendAuthEmail()
+	if err != nil {
+		log.Println(err.Error())
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "sent"})
+}
+
 func (h *AuthHandler) Logout(c *gin.Context) {
 	cookies, err := getCookies(c)
 	if err != nil {

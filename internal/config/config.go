@@ -1,15 +1,10 @@
 package config
 
 import (
-	"fmt"
-	"log"
 	"os"
 	"strconv"
 
 	"github.com/joho/godotenv"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
-	"google.golang.org/api/gmail/v1"
 )
 
 type Config struct {
@@ -69,22 +64,4 @@ func LoadEnv() (*Config, error) {
 		},
 	}
 	return cfg, nil
-}
-
-func SetGetGoogleOAuthConfig(cId, pId, cSe, ru string) *oauth2.Config {
-	credentials := fmt.Sprintf(`{
-		"installed": {
-			"client_id": %s
-			"project_id": %s
-			"auth_uri": "https://accounts.google.com/o/oauth2/auth",
-			"token_uri": "https://oauth2.googleapis.com/token",
-			"client_secret": %s
-			"redirect_uris": %s
-		}
-	}`, cId, pId, cSe, ru)
-	config, err := google.ConfigFromJSON([]byte(credentials), gmail.GmailSendScope)
-	if err != nil {
-		log.Fatalf("Error parsing OAuth config: %v", err)
-	}
-	return config
 }

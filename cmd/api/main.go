@@ -15,8 +15,10 @@ func main() {
 		log.Fatalf("Could not load config: %v", err)
 	}
 
-	config.SetGetGoogleOAuthConfig(cfg.GoogleOAuth2.ClientId, cfg.GoogleOAuth2.ProjectId, cfg.GoogleOAuth2.ClientSecret, cfg.AppUri)
+	utils.SetGetGoogleOAuthConfig(cfg.GoogleOAuth2.ClientId, cfg.GoogleOAuth2.ProjectId, cfg.GoogleOAuth2.ClientSecret, cfg.AppUri)
+	utils.SetGoogleRefreshToken(cfg.GoogleOAuth2.RefreshToken)
 	utils.SetTokenSecretKey(cfg.SecretKey)
+
 	db, err := database.Connect(cfg.DB.DbUrl, cfg.DB.MaxIdleTime, cfg.DB.MaxOpenConns, cfg.DB.MaxIdleConns)
 	if err != nil {
 		log.Panic(err)
