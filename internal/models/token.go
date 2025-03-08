@@ -4,10 +4,9 @@ import "github.com/google/uuid"
 
 type Token struct {
 	ID        int       `json:"id"`
-	Value     string    `json:"value"`
-	TokenId   uuid.UUID `json:"token_id"`
+	Hash      string    `json:"hash"`
 	IsRevoked bool      `json:"is_revoked"`
-	UserId    string    `json:"user_id"`
-	CreatedAt string    `json:"created_at"`
+	DeviceId  uuid.UUID `json:"device_id"`
+	UserId    uuid.UUID `json:"user_id"`
 	ExpiredAt string    `json:"expired_at"`
 }

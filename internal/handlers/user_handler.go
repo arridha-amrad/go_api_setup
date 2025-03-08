@@ -69,13 +69,11 @@ func (h *UserHandler) Update(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user id"})
 		return
 	}
-
 	value, exist := c.Get("validatedBody")
 	if !exist {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Error"})
 		return
 	}
-
 	existingUser, err := h.service.GetUserById(c.Request.Context(), userId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -85,7 +83,6 @@ func (h *UserHandler) Update(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Something went wrong"})
 		}
 	}
-
 	if v, ok := value.(map[string]any); ok {
 		if username, exists := v["username"].(string); exists {
 			existingUser.Username = username
@@ -103,7 +100,6 @@ func (h *UserHandler) Update(c *gin.Context) {
 			existingUser.Role = role
 		}
 	}
-
 	h.service.UpdateUser(c.Request.Context(), existingUser)
 	c.JSON(http.StatusOK, gin.H{"user": existingUser})
 }

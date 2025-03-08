@@ -68,9 +68,7 @@ func (m *middleware) UpdateUser(c *gin.Context) {
 		c.Abort()
 		return
 	}
-
 	valErrors := make(map[string]string)
-
 	if username, exists := input["username"].(string); exists {
 		if err := m.validate.Var(username, "required,min=5"); err != nil {
 			valErrors["username"] = "a minimum of 5 characters is required"
@@ -96,13 +94,11 @@ func (m *middleware) UpdateUser(c *gin.Context) {
 			valErrors["role"] = "unrecognized role"
 		}
 	}
-
 	if len(valErrors) > 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"errors": valErrors})
 		c.Abort()
 		return
 	}
-
 	c.Set("validatedBody", input)
 	c.Next()
 }

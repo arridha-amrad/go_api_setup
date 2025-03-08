@@ -47,6 +47,7 @@ func RegisterRoutes(db *sql.DB, validate *validator.Validate) *gin.Engine {
 			v1Auth.GET("", mdT.RequireAuth, authHandler.GetAuth)
 			v1Auth.POST("", md.Login, authHandler.Login)
 			v1Auth.POST("/refresh-token", authHandler.RefreshToken)
+			v1Auth.POST("/logout", authHandler.Logout)
 		}
 	}
 

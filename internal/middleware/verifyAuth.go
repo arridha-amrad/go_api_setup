@@ -25,14 +25,12 @@ func (m VerificationAuthTokenMiddleware) RequireAuth(c *gin.Context) {
 		c.Abort()
 		return
 	}
-
 	const bearerPrefix = "Bearer "
 	if !strings.HasPrefix(authorization, bearerPrefix) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization header format"})
 		c.Abort()
 		return
 	}
-
 	tokenStr := strings.TrimSpace(strings.TrimPrefix(authorization, bearerPrefix))
 	payload, err := m.authService.ValidateToken(tokenStr, "access")
 	if err != nil {
@@ -40,7 +38,6 @@ func (m VerificationAuthTokenMiddleware) RequireAuth(c *gin.Context) {
 		c.Abort()
 		return
 	}
-
 	c.Set("authenticatedUserId", payload.UserId)
 	c.Next()
 

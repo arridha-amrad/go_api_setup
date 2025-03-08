@@ -16,51 +16,48 @@ func NewTokenRepository(db *sql.DB) *TokenRepository {
 	return &TokenRepository{db: db}
 }
 
-func (s *TokenRepository) Insert(ctx context.Context, tokenId, userId, value string) (*models.Token, error) {
+func (s *TokenRepository) Insert(ctx context.Context, userId, deviceId uuid.UUID, hash string) (*models.Token, error) {
 	token := &models.Token{}
 	query := `
-		INSERT INTO tokens (token_id, user_id, value)
+		INSERT INTO tokens (device_id, user_id, hash)
 		VALUES ($1, $2, $3)
-		RETURNING id, token_id, user_id, value, is_revoked, created_at, expired_at
+		RETURNING id, hash, is_revoked, device_id, user_id, expired_at
 	`
-	if err := s.db.QueryRowContext(ctx, query, tokenId, userId, value).Scan(
-		&token.ID, &token.TokenId, &token.UserId, &token.Value, &token.IsRevoked, &token.CreatedAt, &token.ExpiredAt,
+	if err := s.db.QueryRowContext(ctx, query, deviceId, userId, hash).Scan(
+		&token.ID, &token.Hash, &token.IsRevoked, &token.DeviceId, &token.UserId, &token.ExpiredAt,
 	); err != nil {
 		return nil, err
 	}
 	return token, nil
 }
 
-func (s *TokenRepository) GetByTokenId(ctx context.Context, tokenId string) (*models.Token, error) {
+func (s *TokenRepository) GetToken(ctx context.Context, userId, deviceId uuid.UUID) (*models.Token, error) {
 	token := &models.Token{}
 	query := `
-		SELECT id, token_id, user_id, value, is_revoked, created_at, expired_at
+		SELECT id, hash, is_revoked, device_id, user_id, expired_at
 		FROM tokens
-		WHERE token_id=$1
+		WHERE user_id=$1 AND device_id=$2
 	`
-	if err := s.db.QueryRowContext(ctx, query, tokenId).Scan(
-		&token.ID, &token.TokenId, &token.UserId, &token.Value, &token.IsRevoked, &token.CreatedAt, &token.ExpiredAt,
+	if err := s.db.QueryRowContext(ctx, query, userId, deviceId).Scan(
+		&token.ID, &token.Hash, &token.IsRevoked, &token.DeviceId, &token.UserId, &token.ExpiredAt,
 	); err != nil {
 		return nil, err
 	}
 	return token, nil
 }
 
-func (s *TokenRepository) Remove(ctx context.Context, tokenId uuid.UUID) (bool, error) {
-	query := `DELETE FROM token WHERE token_id=$1`
-
-	result, err := s.db.ExecContext(ctx, query, tokenId)
+func (s *TokenRepository) Remove(ctx context.Context, userId, deviceId uuid.UUID) error {
+	query := `DELETE FROM tokens WHERE user_id=$1 AND device_id=$2`
+	result, err := s.db.ExecContext(ctx, query, userId, deviceId)
 	if err != nil {
-		return false, err
+		return err
 	}
-
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return false, err
+		return err
 	}
 	if rowsAffected == 0 {
-		return false, nil
+		return nil
 	}
-
-	return true, nil
+	return nil
 }

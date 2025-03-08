@@ -25,60 +25,54 @@ func NewAuthService(userRepo *repositories.UserRepository, tokenRepo *repositori
 	}
 }
 
-func (s *AuthService) StoreRefreshToken(ctx context.Context, tokenId, userId, value string) error {
-	_, err := s.tokenRepo.Insert(ctx, tokenId, userId, value)
+func (s *AuthService) StoreRefreshToken(ctx context.Context, userId, deviceId uuid.UUID, hash string) error {
+	_, err := s.tokenRepo.Insert(ctx, userId, deviceId, hash)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *AuthService) DeleteRefreshToken(ctx context.Context, tokenId uuid.UUID) (bool, error) {
-	ok, err := s.tokenRepo.Remove(ctx, tokenId)
-	if err != nil {
-		return false, err
-	}
-	return ok, nil
-}
-
-func (s *AuthService) VerifyRefreshToken(ctx context.Context, tokenId, userId string) error {
-	existingToken, err := s.tokenRepo.GetByTokenId(ctx, tokenId)
+func (s *AuthService) DeleteRefreshToken(ctx context.Context, userId, deviceId uuid.UUID) error {
+	err := s.tokenRepo.Remove(ctx, userId, deviceId)
 	if err != nil {
 		return err
 	}
-
-	if existingToken.UserId != userId || !existingToken.IsRevoked {
-		return errors.New("token invalid")
-	}
-
-	payload, err := s.ValidateToken(existingToken.Value, "refresh")
-
-	if err != nil {
-		return err
-	}
-
-	if payload.UserId == userId && payload.TokenId == tokenId {
-		return nil
-	}
-	return errors.New("token data is invalid")
-
+	return nil
 }
 
-func (s *AuthService) GenerateToken(userId, tokenId, tokenType string) (string, error) {
-
-	var myTokenType utils.TokenType
-	switch tokenType {
-	case "refresh":
-		myTokenType = utils.RefreshToken
-	case "access":
-		myTokenType = utils.AccessToken
-	case "link":
-		myTokenType = utils.LinkToken
-	default:
-		return "", errors.New("undefined token")
+func (s *AuthService) VerifyRefreshToken(ctx context.Context, userId, deviceId uuid.UUID, token string) error {
+	existingToken, err := s.tokenRepo.GetToken(ctx, userId, deviceId)
+	if err != nil {
+		return errors.New("stored token not found")
 	}
+	if existingToken.IsRevoked {
+		return errors.New("reuse token detected")
+	}
+	t, err := time.Parse(time.RFC3339, existingToken.ExpiredAt)
+	if err != nil {
+		return errors.New("failed to parsed string expiredAt to time")
+	}
+	if t.UnixMilli() < time.Now().UnixMilli() {
+		return errors.New("refresh token is expired")
+	}
+	if existingToken.Hash != utils.HashWithSHA256(token) {
+		return errors.New("unrecognized token")
+	}
+	return nil
+}
 
-	token, err := utils.GenerateToken(userId, tokenId, myTokenType)
+func (s *AuthService) GenerateRefreshToken() (string, string, error) {
+	raw, err := utils.GenerateRandomBytes(32)
+	if err != nil {
+		return "", "", errors.New("failed to generate refresh token")
+	}
+	hash := utils.HashWithSHA256(raw)
+	return raw, hash, nil
+}
+
+func (s *AuthService) GenerateToken(userId uuid.UUID) (string, error) {
+	token, err := utils.GenerateToken(userId)
 	if err != nil {
 		return "", errors.New("failed to generate token")
 	}
@@ -117,17 +111,14 @@ func (s *AuthService) GetUserByIdentity(ctx context.Context, identity string) (*
 }
 
 type TokenPayload struct {
-	UserId  string
-	TokenId string
+	UserId uuid.UUID
 }
 
 func (s *AuthService) ValidateToken(tokenString string, tokenType string) (*TokenPayload, error) {
-
 	claims, err := utils.ValidateToken(tokenString)
 	if err != nil {
 		return nil, errors.New("invalid token")
 	}
-
 	expireTime, ok := (*claims)["exp"].(float64)
 	if !ok {
 		return nil, errors.New("failed to covert to float64")
@@ -136,26 +127,16 @@ func (s *AuthService) ValidateToken(tokenString string, tokenType string) (*Toke
 	if expirationTime.Before(time.Now()) {
 		return nil, errors.New("token expired")
 	}
-
-	currTokenType, ok := (*claims)["type"].(string)
-
-	if !ok || currTokenType != tokenType {
-		return nil, errors.New("failed to recognize the token")
-	}
-
-	userId, ok := (*claims)["user_id"].(string)
+	userId, ok := (*claims)["userId"].(string)
 	if !ok {
 		return nil, errors.New("failed to covert to string")
 	}
-
-	tokenId, ok := (*claims)["token_id"].(string)
-	if !ok {
-		return nil, errors.New("failed to covert to string")
+	userIdUUD, err := uuid.Parse(userId)
+	if err != nil {
+		return nil, err
 	}
-
 	payload := &TokenPayload{
-		UserId:  userId,
-		TokenId: tokenId,
+		UserId: userIdUUD,
 	}
 	return payload, nil
 }
