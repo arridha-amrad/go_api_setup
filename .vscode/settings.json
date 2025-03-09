@@ -1,4 +1,14 @@
 {
   "makefile.configureOnOpen": false,
-  "thunder-client.multiRootWorkspaceName": "go_api_setup"
+  "thunder-client.multiRootWorkspaceName": "go_api_setup",
+  "cSpell.words": [
+    "BIGSERIAL",
+    "Fufufafa",
+    "jackc",
+    "ossp",
+    "sslmode",
+    "stdlib",
+    "stretchr",
+    "VARCHAR"
+  ]
 }

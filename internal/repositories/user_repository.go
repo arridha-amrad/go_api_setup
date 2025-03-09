@@ -3,22 +3,30 @@ package repositories
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"log"
 	"my-go-api/internal/models"
 
 	"github.com/google/uuid"
 )
 
-type UserRepository struct {
+type IUserRepository interface {
+	GetAll(ctx context.Context) ([]models.User, error)
+	Create(ctx context.Context, name, username, email, password string) (*models.User, error)
+	GetById(ctx context.Context, userId uuid.UUID) (*models.User, error)
+	GetByUsername(ctx context.Context, username string) (*models.User, error)
+	GetByEmail(ctx context.Context, email string) (*models.User, error)
+	Update(ctx context.Context, user *models.User) (*models.User, error)
+}
+
+type userRepository struct {
 	db *sql.DB
 }
 
-func NewUserRepository(db *sql.DB) *UserRepository {
-	return &UserRepository{db: db}
+func NewUserRepository(db *sql.DB) IUserRepository {
+	return &userRepository{db: db}
 }
 
-func (s *UserRepository) GetAll(ctx context.Context) ([]models.User, error) {
+func (s *userRepository) GetAll(ctx context.Context) ([]models.User, error) {
 	query := `
 		SELECT id, name, username, email, provider, role, created_at, updated_at
 		FROM users
@@ -32,36 +40,32 @@ func (s *UserRepository) GetAll(ctx context.Context) ([]models.User, error) {
 	// Iterate over the rows
 	for rows.Next() {
 		var user models.User
-
 		// Scan the row into the User struct
 		err := rows.Scan(&user.ID, &user.Name, &user.Username, &user.Email, &user.Provider, &user.Role, &user.CreatedAt, &user.UpdatedAt)
 		if err != nil {
 			log.Printf("Failed to scan user: %v", err) // Log the error
 			return nil, err
 		}
-
 		// Append the user to the slice
 		users = append(users, user)
 	}
 	return users, nil
-
 }
 
-func (s *UserRepository) Create(ctx context.Context, name, username, email, password string) (*models.User, error) {
-	fmt.Println("name : ", name)
+func (s *userRepository) Create(ctx context.Context, name, username, email, password string) (*models.User, error) {
 	user := &models.User{}
 	query := `
 						INSERT INTO users (name, username, email, password)
 						VALUES ($1, $2, $3, $4)
-						RETURNING id, name, email, username, provider, role, updated_at, created_at
+						RETURNING id, name, email, password, username, provider, role, updated_at, created_at
 					`
-	if err := s.db.QueryRowContext(ctx, query, name, username, email, password).Scan(&user.ID, &user.Name, &user.Email, &user.Username, &user.Provider, &user.Role, &user.UpdatedAt, &user.CreatedAt); err != nil {
+	if err := s.db.QueryRowContext(ctx, query, name, username, email, password).Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.Username, &user.Provider, &user.Role, &user.UpdatedAt, &user.CreatedAt); err != nil {
 		return nil, err
 	}
 	return user, nil
 }
 
-func (s *UserRepository) GetById(ctx context.Context, userId uuid.UUID) (*models.User, error) {
+func (s *userRepository) GetById(ctx context.Context, userId uuid.UUID) (*models.User, error) {
 	user := &models.User{}
 	query := `SELECT 
 						id, name, username, email, password, provider, role, created_at, updated_at 
@@ -72,7 +76,7 @@ func (s *UserRepository) GetById(ctx context.Context, userId uuid.UUID) (*models
 	return user, nil
 }
 
-func (s *UserRepository) GetByUsername(ctx context.Context, username string) (*models.User, error) {
+func (s *userRepository) GetByUsername(ctx context.Context, username string) (*models.User, error) {
 	user := &models.User{}
 	query := `SELECT 
 						id, name, username, email, password, provider, role, created_at, updated_at 
@@ -83,7 +87,7 @@ func (s *UserRepository) GetByUsername(ctx context.Context, username string) (*m
 	return user, nil
 }
 
-func (s *UserRepository) GetByEmail(ctx context.Context, email string) (*models.User, error) {
+func (s *userRepository) GetByEmail(ctx context.Context, email string) (*models.User, error) {
 	user := &models.User{}
 	query := `SELECT 
 						id, name, username, email, password, provider, role, created_at, updated_at 
@@ -94,10 +98,10 @@ func (s *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 	return user, nil
 }
 
-func (s *UserRepository) Update(ctx context.Context, user *models.User) (*models.User, error) {
+func (s *userRepository) Update(ctx context.Context, user *models.User) (*models.User, error) {
 	query := `
 		UPDATE users
-		SET username=$1, email=$2, name=$3, password=$4, role=$5
+		SET username=$1, email=$2, name=$3, password=$4, role=$5, updated_at=NOW()
 		WHERE id=$6 
 		RETURNING id, name, username, email, password, provider, role, created_at, updated_at
 	`
