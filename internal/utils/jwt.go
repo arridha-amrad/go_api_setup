@@ -25,7 +25,7 @@ func SetTokenSecretKey(key string) {
 	secretKey = key
 }
 
-func GenerateToken(userId uuid.UUID) (string, error) {
+func (u *utility) GenerateToken(userId uuid.UUID) (string, error) {
 	claims := jwt.MapClaims{
 		"userId": userId,
 		"exp":    time.Now().Add(1 * time.Hour).UnixMilli(),
@@ -34,7 +34,7 @@ func GenerateToken(userId uuid.UUID) (string, error) {
 	return token.SignedString([]byte(secretKey))
 }
 
-func ValidateToken(tokenString string) (*jwt.MapClaims, error) {
+func (u *utility) ValidateToken(tokenString string) (*jwt.MapClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(secretKey), nil
 	})

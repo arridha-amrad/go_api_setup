@@ -9,10 +9,10 @@ import (
 )
 
 type VerificationAuthTokenMiddleware struct {
-	authService *services.AuthService
+	authService services.IAuthService
 }
 
-func RegisterTokenVerificationMiddleware(authService *services.AuthService) *VerificationAuthTokenMiddleware {
+func RegisterTokenVerificationMiddleware(authService services.IAuthService) *VerificationAuthTokenMiddleware {
 	return &VerificationAuthTokenMiddleware{
 		authService: authService,
 	}
@@ -32,7 +32,7 @@ func (m VerificationAuthTokenMiddleware) RequireAuth(c *gin.Context) {
 		return
 	}
 	tokenStr := strings.TrimSpace(strings.TrimPrefix(authorization, bearerPrefix))
-	payload, err := m.authService.ValidateToken(tokenStr, "access")
+	payload, err := m.authService.ValidateToken(tokenStr)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		c.Abort()

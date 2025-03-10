@@ -5,41 +5,65 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
+	"my-go-api/internal/dto"
 	"my-go-api/internal/models"
 	"my-go-api/internal/repositories"
-	"my-go-api/pkg/utils"
+	"my-go-api/internal/utils"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 )
 
-type AuthService struct {
-	appUri    string
-	userRepo  repositories.IUserRepository
-	tokenRepo *repositories.TokenRepository
+type IAuthService interface {
+	SendVerificationEmail(name, email, token string) error
+	StoreRefreshToken(ctx context.Context, userId, deviceId uuid.UUID, hash string) error
+	DeleteRefreshToken(ctx context.Context, userId, deviceId uuid.UUID) error
+	VerifyRefreshToken(ctx context.Context, userId, deviceId uuid.UUID, token string) error
+	GenerateRefreshToken() (string, string, error)
+	GenerateToken(userId uuid.UUID) (string, error)
+	VerifyPassword(hashedPassword string, plainPassword string) bool
+	GetUserByIdentity(ctx context.Context, identity string) (*models.User, error)
+	ValidateToken(tokenString string) (*TokenPayload, error)
+	CreateUser(ctx context.Context, req dto.CreateUser) (*models.User, error)
 }
 
-func NewAuthService(userRepo repositories.IUserRepository, tokenRepo *repositories.TokenRepository, appUri string) *AuthService {
-	return &AuthService{
+type authService struct {
+	appUri    string
+	userRepo  repositories.IUserRepository
+	tokenRepo repositories.ITokenRepository
+	utility   utils.IUtils
+}
+
+func NewAuthService(
+	userRepo repositories.IUserRepository,
+	utility utils.IUtils,
+	tokenRepo repositories.ITokenRepository,
+	appUri string,
+) IAuthService {
+
+	return &authService{
 		userRepo:  userRepo,
 		tokenRepo: tokenRepo,
 		appUri:    appUri,
+		utility:   utility,
 	}
+
 }
 
-func (s *AuthService) SendVerificationEmail(name, email, token string) error {
+func (s *authService) SendVerificationEmail(name, email, token string) error {
 	var link = s.appUri + fmt.Sprintf("/email-verification?token=%s", token)
 	var subject = "Email verification"
 	var emailBody = fmt.Sprintf("Hello %s.\n\n Please follow this link to verify your new account\n\n%s", name, link)
-	err := utils.SendEmail(subject, emailBody, email)
+	err := s.utility.SendEmailWithGmail(subject, emailBody, email)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *AuthService) StoreRefreshToken(ctx context.Context, userId, deviceId uuid.UUID, hash string) error {
+func (s *authService) StoreRefreshToken(ctx context.Context, userId, deviceId uuid.UUID, hash string) error {
 	_, err := s.tokenRepo.Insert(ctx, userId, deviceId, hash)
 	if err != nil {
 		return err
@@ -47,7 +71,7 @@ func (s *AuthService) StoreRefreshToken(ctx context.Context, userId, deviceId uu
 	return nil
 }
 
-func (s *AuthService) DeleteRefreshToken(ctx context.Context, userId, deviceId uuid.UUID) error {
+func (s *authService) DeleteRefreshToken(ctx context.Context, userId, deviceId uuid.UUID) error {
 	err := s.tokenRepo.Remove(ctx, userId, deviceId)
 	if err != nil {
 		return err
@@ -55,7 +79,7 @@ func (s *AuthService) DeleteRefreshToken(ctx context.Context, userId, deviceId u
 	return nil
 }
 
-func (s *AuthService) VerifyRefreshToken(ctx context.Context, userId, deviceId uuid.UUID, token string) error {
+func (s *authService) VerifyRefreshToken(ctx context.Context, userId, deviceId uuid.UUID, token string) error {
 	existingToken, err := s.tokenRepo.GetToken(ctx, userId, deviceId)
 	if err != nil {
 		return errors.New("stored token not found")
@@ -70,37 +94,37 @@ func (s *AuthService) VerifyRefreshToken(ctx context.Context, userId, deviceId u
 	if t.UnixMilli() < time.Now().UnixMilli() {
 		return errors.New("refresh token is expired")
 	}
-	if existingToken.Hash != utils.HashWithSHA256(token) {
+	if existingToken.Hash != s.utility.HashWithSHA256(token) {
 		return errors.New("unrecognized token")
 	}
 	return nil
 }
 
-func (s *AuthService) GenerateRefreshToken() (string, string, error) {
-	raw, err := utils.GenerateRandomBytes(32)
+func (s *authService) GenerateRefreshToken() (string, string, error) {
+	raw, err := s.utility.GenerateRandomBytes(32)
 	if err != nil {
 		return "", "", errors.New("failed to generate refresh token")
 	}
-	hash := utils.HashWithSHA256(raw)
+	hash := s.utility.HashWithSHA256(raw)
 	return raw, hash, nil
 }
 
-func (s *AuthService) GenerateToken(userId uuid.UUID) (string, error) {
-	token, err := utils.GenerateToken(userId)
+func (s *authService) GenerateToken(userId uuid.UUID) (string, error) {
+	token, err := s.utility.GenerateToken(userId)
 	if err != nil {
 		return "", errors.New("failed to generate token")
 	}
 	return token, nil
 }
 
-func (s *AuthService) VerifyPassword(hashedPassword string, plainPassword string) bool {
-	if err := utils.VerifyPassword(hashedPassword, plainPassword); err != nil {
+func (s *authService) VerifyPassword(hashedPassword string, plainPassword string) bool {
+	if err := s.utility.VerifyPassword(hashedPassword, plainPassword); err != nil {
 		return false
 	}
 	return true
 }
 
-func (s *AuthService) GetUserByIdentity(ctx context.Context, identity string) (*models.User, error) {
+func (s *authService) GetUserByIdentity(ctx context.Context, identity string) (*models.User, error) {
 	var user *models.User
 	if strings.Contains(identity, "@") {
 		existingUser, err := s.userRepo.GetByEmail(ctx, identity)
@@ -128,22 +152,23 @@ type TokenPayload struct {
 	UserId uuid.UUID
 }
 
-func (s *AuthService) ValidateToken(tokenString string, tokenType string) (*TokenPayload, error) {
-	claims, err := utils.ValidateToken(tokenString)
+func (s *authService) ValidateToken(tokenString string) (*TokenPayload, error) {
+	claims, err := s.utility.ValidateToken(tokenString)
+	log.Println(claims)
 	if err != nil {
 		return nil, errors.New("invalid token")
 	}
 	expireTime, ok := (*claims)["exp"].(float64)
 	if !ok {
-		return nil, errors.New("failed to covert to float64")
+		return nil, errors.New("failed to covert to int64")
 	}
-	expirationTime := time.Unix(int64(expireTime), 0)
+	expirationTime := time.UnixMilli(int64(expireTime))
 	if expirationTime.Before(time.Now()) {
 		return nil, errors.New("token expired")
 	}
 	userId, ok := (*claims)["userId"].(string)
 	if !ok {
-		return nil, errors.New("failed to covert to string")
+		return nil, errors.New("failed to covert to uuid")
 	}
 	userIdUUD, err := uuid.Parse(userId)
 	if err != nil {
@@ -153,4 +178,35 @@ func (s *AuthService) ValidateToken(tokenString string, tokenType string) (*Toke
 		UserId: userIdUUD,
 	}
 	return payload, nil
+}
+
+func (u *authService) CreateUser(ctx context.Context, req dto.CreateUser) (*models.User, error) {
+	existingUser, err := u.userRepo.GetByUsername(ctx, req.Username)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	if existingUser != nil {
+		return nil, errors.New("username is registered")
+	}
+
+	existingUser, err = u.userRepo.GetByEmail(ctx, req.Email)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	if existingUser != nil {
+		return nil, errors.New("email is registered")
+	}
+
+	hashedPassword, err := u.utility.HashPassword(req.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := u.userRepo.Create(ctx, req.Name, req.Username, req.Email, hashedPassword)
+	if err != nil {
+		fmt.Println(err)
+		return nil, errors.New("create user failed")
+	}
+
+	return user, nil
 }

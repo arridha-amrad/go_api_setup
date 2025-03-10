@@ -16,7 +16,7 @@ import (
 type TokenRepositoryTestSuite struct {
 	suite.Suite
 	db   *sql.DB
-	repo *TokenRepository
+	repo ITokenRepository
 }
 
 func (suite *TokenRepositoryTestSuite) SetupTest() {
@@ -26,7 +26,7 @@ func (suite *TokenRepositoryTestSuite) SetupTest() {
 		suite.T().Fatal(err)
 	}
 	suite.db = db
-	suite.repo = &TokenRepository{db: db}
+	suite.repo = NewTokenRepository(db)
 
 	// Create the tokens table
 	_, err = suite.db.Exec(`

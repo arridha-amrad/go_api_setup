@@ -10,7 +10,7 @@ import (
 type Config struct {
 	DB           DbConfig
 	Port         string
-	SecretKey    string
+	JWtSecretKey string
 	GoogleOAuth2 GoogleOAuth2Config
 	AppUri       string
 }
@@ -53,9 +53,9 @@ func LoadEnv() (*Config, error) {
 			MaxIdleConns: vMaxIdleConns,
 			MaxIdleTime:  os.Getenv("DB_MAX_IDLE_TIME"),
 		},
-		AppUri:    os.Getenv("APP_URI"),
-		Port:      os.Getenv("PORT"),
-		SecretKey: os.Getenv("SECRET_KEY"),
+		AppUri:       os.Getenv("APP_URI"),
+		Port:         os.Getenv("PORT"),
+		JWtSecretKey: os.Getenv("SECRET_KEY"),
 		GoogleOAuth2: GoogleOAuth2Config{
 			ProjectId:    os.Getenv("GOOGLE_PROJECT_ID"),
 			ClientId:     os.Getenv("GOOGLE_CLIENT_ID"),

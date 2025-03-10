@@ -14,9 +14,17 @@ import (
 	"github.com/google/uuid"
 )
 
-type AuthHandler struct {
-	service     *services.AuthService
-	userService *services.UserService
+type IAuthHandler interface {
+	Register(c *gin.Context)
+	Logout(c *gin.Context)
+	RefreshToken(c *gin.Context)
+	GetAuth(c *gin.Context)
+	Login(c *gin.Context)
+}
+
+type authHandler struct {
+	as services.IAuthService
+	us services.IUserService
 }
 
 type Cookie struct {
@@ -25,8 +33,8 @@ type Cookie struct {
 	deviceId uuid.UUID
 }
 
-func NewAuthHandler(service *services.AuthService, userService *services.UserService) *AuthHandler {
-	return &AuthHandler{service: service, userService: userService}
+func NewAuthHandler(service services.IAuthService, us services.IUserService) IAuthHandler {
+	return &authHandler{as: service, us: us}
 }
 
 func getCookies(c *gin.Context) (*Cookie, error) {
@@ -58,7 +66,7 @@ func getCookies(c *gin.Context) (*Cookie, error) {
 	}, nil
 }
 
-func (h *AuthHandler) Register(c *gin.Context) {
+func (h *authHandler) Register(c *gin.Context) {
 	value, exist := c.Get("validatedBody")
 	if !exist {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Error"})
@@ -69,18 +77,18 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid type for validatedBody"})
 		return
 	}
-	user, err := h.userService.CreateUser(c.Request.Context(), body)
+	user, err := h.as.CreateUser(c.Request.Context(), body)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"errors": err.Error()})
 		return
 	}
-	token, err := h.service.GenerateToken(user.ID)
+	token, err := h.as.GenerateToken(user.ID)
 	if err != nil {
 		log.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"errors": "Something went wrong"})
 		return
 	}
-	if err := h.service.SendVerificationEmail(user.Name, user.Email, token); err != nil {
+	if err := h.as.SendVerificationEmail(user.Name, user.Email, token); err != nil {
 		log.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"errors": "Something went wrong"})
 		return
@@ -88,14 +96,14 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": fmt.Sprintf("An email has been sent to %s. Please follow the instruction to verify your account.", user.Email)})
 }
 
-func (h *AuthHandler) Logout(c *gin.Context) {
+func (h *authHandler) Logout(c *gin.Context) {
 	cookies, err := getCookies(c)
 	if err != nil {
 		log.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Something went wrong"})
 		return
 	}
-	err = h.service.DeleteRefreshToken(c.Request.Context(), cookies.userId, cookies.deviceId)
+	err = h.as.DeleteRefreshToken(c.Request.Context(), cookies.userId, cookies.deviceId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Something went wrong"})
 		return
@@ -106,35 +114,35 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Logout"})
 }
 
-func (h *AuthHandler) RefreshToken(c *gin.Context) {
+func (h *authHandler) RefreshToken(c *gin.Context) {
 	cookies, err := getCookies(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
-	if err := h.service.VerifyRefreshToken(c.Request.Context(), cookies.userId, cookies.deviceId, cookies.token); err != nil {
+	if err := h.as.VerifyRefreshToken(c.Request.Context(), cookies.userId, cookies.deviceId, cookies.token); err != nil {
 		log.Println(err.Error())
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
-	tokenAcc, err := h.service.GenerateToken(cookies.userId)
+	tokenAcc, err := h.as.GenerateToken(cookies.userId)
 	if err != nil {
 		log.Println("failed to generate a token")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Something went wrong"})
 		return
 	}
-	if err := h.service.DeleteRefreshToken(c.Request.Context(), cookies.userId, cookies.deviceId); err != nil {
+	if err := h.as.DeleteRefreshToken(c.Request.Context(), cookies.userId, cookies.deviceId); err != nil {
 		log.Println("failed to delete the old token")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Something went wrong"})
 		return
 	}
-	newRefreshToken, hashToken, err := h.service.GenerateRefreshToken()
+	newRefreshToken, hashToken, err := h.as.GenerateRefreshToken()
 	if err != nil {
 		log.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Something went wrong"})
 		return
 	}
-	if err := h.service.StoreRefreshToken(c.Request.Context(), cookies.userId, cookies.deviceId, hashToken); err != nil {
+	if err := h.as.StoreRefreshToken(c.Request.Context(), cookies.userId, cookies.deviceId, hashToken); err != nil {
 		log.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Something went wrong"})
 		return
@@ -143,7 +151,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"token": "Bearer " + tokenAcc})
 }
 
-func (h *AuthHandler) GetAuth(c *gin.Context) {
+func (h *authHandler) GetAuth(c *gin.Context) {
 	value, exist := c.Get("authenticatedUserId")
 	if !exist {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "validated body not exists"})
@@ -154,7 +162,7 @@ func (h *AuthHandler) GetAuth(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
 		return
 	}
-	user, err := h.userService.GetUserById(c.Request.Context(), userId)
+	user, err := h.us.GetUserById(c.Request.Context(), userId)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "user not found"})
 		return
@@ -162,7 +170,7 @@ func (h *AuthHandler) GetAuth(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"user": user})
 }
 
-func (h *AuthHandler) Login(c *gin.Context) {
+func (h *authHandler) Login(c *gin.Context) {
 	value, exist := c.Get("validatedBody")
 	if !exist {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "validated body not exists"})
@@ -173,7 +181,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid type for validated body"})
 		return
 	}
-	existingUser, err := h.service.GetUserByIdentity(c.Request.Context(), body.Identity)
+	existingUser, err := h.as.GetUserByIdentity(c.Request.Context(), body.Identity)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -182,23 +190,23 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	if isMatch := h.service.VerifyPassword(existingUser.Password, body.Password); !isMatch {
+	if isMatch := h.as.VerifyPassword(existingUser.Password, body.Password); !isMatch {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "wrong password"})
 		return
 	}
-	tokenAcc, err := h.service.GenerateToken(existingUser.ID)
+	tokenAcc, err := h.as.GenerateToken(existingUser.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	deviceId := uuid.New()
-	newRefreshToken, hashToken, err := h.service.GenerateRefreshToken()
+	newRefreshToken, hashToken, err := h.as.GenerateRefreshToken()
 	if err != nil {
 		log.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Something went wrong"})
 		return
 	}
-	if err := h.service.StoreRefreshToken(c.Request.Context(), existingUser.ID, deviceId, hashToken); err != nil {
+	if err := h.as.StoreRefreshToken(c.Request.Context(), existingUser.ID, deviceId, hashToken); err != nil {
 		log.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Something went wrong"})
 		return

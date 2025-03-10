@@ -2,8 +2,10 @@ package routes
 
 import (
 	"database/sql"
+	"my-go-api/internal/config"
 	"my-go-api/internal/handlers"
 	"my-go-api/internal/middleware"
+	"my-go-api/internal/utils"
 
 	"my-go-api/internal/repositories"
 	"my-go-api/internal/services"
@@ -13,16 +15,23 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-func RegisterRoutes(db *sql.DB, validate *validator.Validate, appUri string) *gin.Engine {
+func RegisterRoutes(db *sql.DB, validate *validator.Validate, config *config.Config) *gin.Engine {
 	router := gin.Default()
 
 	userRepo := repositories.NewUserRepository(db)
 	userService := services.NewUserService(userRepo)
 	userHandler := handlers.NewUserHandler(userService)
 
+	utilities := utils.NewUtilities(config.JWtSecretKey, config.AppUri, config.GoogleOAuth2)
 	tokenRepo := repositories.NewTokenRepository(db)
 
-	authService := services.NewAuthService(userRepo, tokenRepo, appUri)
+	authService := services.NewAuthService(
+		userRepo,
+		utilities,
+		tokenRepo,
+		config.AppUri,
+	)
+
 	authHandler := handlers.NewAuthHandler(authService, userService)
 
 	md := middleware.RegisterValidationMiddleware(validate)

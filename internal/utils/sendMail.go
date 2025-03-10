@@ -12,15 +12,7 @@ import (
 	"google.golang.org/api/option"
 )
 
-var refreshToken string
-
-var config *oauth2.Config
-
-func SetGoogleRefreshToken(token string) {
-	refreshToken = token
-}
-
-func SetGetGoogleOAuthConfig(cId, pId, cSe, ru string) {
+func (u *utility) CreateGoogleOauth2Config() *oauth2.Config {
 	credentials := fmt.Sprintf(`{
 		"installed": {
 			"client_id": "%s",
@@ -30,16 +22,17 @@ func SetGetGoogleOAuthConfig(cId, pId, cSe, ru string) {
 			"client_secret": "%s",
 			"redirect_uris": ["%s"]
 		}
-	}`, cId, pId, cSe, ru)
+	}`, u.google.ClientId, u.google.ProjectId, u.google.ClientSecret, u.appUri)
 	cfg, err := google.ConfigFromJSON([]byte(credentials), gmail.GmailSendScope)
 	if err != nil {
 		log.Fatalf("Error parsing OAuth config: %v", err)
 	}
-	config = cfg
+	return cfg
 }
 
-func GetTokenFromRefreshToken() *oauth2.Token {
-	token := &oauth2.Token{RefreshToken: refreshToken}
+func (u *utility) GetTokenFromRefreshToken(config *oauth2.Config) *oauth2.Token {
+
+	token := &oauth2.Token{RefreshToken: u.google.RefreshToken}
 	tokenSource := config.TokenSource(context.Background(), token)
 	newToken, err := tokenSource.Token()
 	if err != nil {
@@ -48,8 +41,9 @@ func GetTokenFromRefreshToken() *oauth2.Token {
 	return newToken
 }
 
-func SendEmail(subject, body, address string) error {
-	token := GetTokenFromRefreshToken()
+func (u *utility) SendEmailWithGmail(subject, body, address string) error {
+	config := u.CreateGoogleOauth2Config()
+	token := u.GetTokenFromRefreshToken(config)
 	client := config.Client(context.Background(), token)
 	service, err := gmail.NewService(context.Background(), option.WithHTTPClient(client))
 	if err != nil {

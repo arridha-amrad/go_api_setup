@@ -10,9 +10,9 @@ import (
 	"github.com/google/uuid"
 )
 
-type UserHandler struct{ service *services.UserService }
+type UserHandler struct{ service services.IUserService }
 
-func NewUserHandler(service *services.UserService) *UserHandler {
+func NewUserHandler(service services.IUserService) *UserHandler {
 	return &UserHandler{service: service}
 }
 
@@ -29,6 +29,7 @@ func (h *UserHandler) GetUserById(c *gin.Context) {
 			return
 		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Something went wrong"})
+			return
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"user": user})
@@ -61,6 +62,7 @@ func (h *UserHandler) Update(c *gin.Context) {
 			return
 		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Something went wrong"})
+			return
 		}
 	}
 	if v, ok := value.(map[string]any); ok {
