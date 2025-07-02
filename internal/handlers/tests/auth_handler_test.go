@@ -138,7 +138,7 @@ func TestRegister(t *testing.T) {
 		assert.JSONEq(t, `{"error": "invalid type for validatedBody"}`, w.Body.String())
 	})
 
-	t.Run("should return 500 if CreateUser fails", func(t *testing.T) {
+	t.Run("should return 409 if CreateUser fails", func(t *testing.T) {
 		router := gin.Default()
 		router.POST("/register", func(c *gin.Context) {
 			c.Set("validatedBody", dto.CreateUser{
@@ -149,21 +149,16 @@ func TestRegister(t *testing.T) {
 			})
 			authHandler.Register(c)
 		})
-
 		mockAuthService.EXPECT().CreateUser(gomock.Any(), gomock.Any()).Return(nil, errors.New("failed to create user"))
-
 		req, _ := http.NewRequest(http.MethodPost, "/register", nil)
 		w := httptest.NewRecorder()
-
 		router.ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		assert.Equal(t, http.StatusConflict, w.Code)
 		assert.JSONEq(t, `{"errors": "failed to create user"}`, w.Body.String())
 	})
 
 	t.Run("should return 500 if GenerateToken fails", func(t *testing.T) {
 		user := &models.User{ID: uuid.New(), Email: "john@example.com"}
-
 		router := gin.Default()
 		router.POST("/register", func(c *gin.Context) {
 			c.Set("validatedBody", dto.CreateUser{
@@ -174,15 +169,11 @@ func TestRegister(t *testing.T) {
 			})
 			authHandler.Register(c)
 		})
-
 		mockAuthService.EXPECT().CreateUser(gomock.Any(), gomock.Any()).Return(user, nil)
 		mockAuthService.EXPECT().GenerateToken(user.ID).Return("", errors.New("token generation failed"))
-
 		req, _ := http.NewRequest(http.MethodPost, "/register", nil)
 		w := httptest.NewRecorder()
-
 		router.ServeHTTP(w, req)
-
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
 		assert.JSONEq(t, `{"errors": "Something went wrong"}`, w.Body.String())
 	})
@@ -190,7 +181,6 @@ func TestRegister(t *testing.T) {
 	t.Run("should return 500 if SendVerificationEmail fails", func(t *testing.T) {
 		user := &models.User{ID: uuid.New(), Email: "john@example.com"}
 		token := "some-token"
-
 		router := gin.Default()
 		router.POST("/register", func(c *gin.Context) {
 			c.Set("validatedBody", dto.CreateUser{
@@ -201,16 +191,12 @@ func TestRegister(t *testing.T) {
 			})
 			authHandler.Register(c)
 		})
-
 		mockAuthService.EXPECT().CreateUser(gomock.Any(), gomock.Any()).Return(user, nil)
 		mockAuthService.EXPECT().GenerateToken(user.ID).Return(token, nil)
 		mockAuthService.EXPECT().SendVerificationEmail(user.Name, user.Email, token).Return(errors.New("email send failed"))
-
 		req, _ := http.NewRequest(http.MethodPost, "/register", nil)
 		w := httptest.NewRecorder()
-
 		router.ServeHTTP(w, req)
-
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
 		assert.JSONEq(t, `{"errors": "Something went wrong"}`, w.Body.String())
 	})
@@ -218,7 +204,6 @@ func TestRegister(t *testing.T) {
 	t.Run("should return 201 if registration is successful", func(t *testing.T) {
 		user := &models.User{ID: uuid.New(), Email: "john@example.com"}
 		token := "some-token"
-
 		router := gin.Default()
 		router.POST("/register", func(c *gin.Context) {
 			c.Set("validatedBody", dto.CreateUser{
@@ -229,11 +214,9 @@ func TestRegister(t *testing.T) {
 			})
 			authHandler.Register(c)
 		})
-
 		mockAuthService.EXPECT().CreateUser(gomock.Any(), gomock.Any()).Return(user, nil)
 		mockAuthService.EXPECT().GenerateToken(user.ID).Return(token, nil)
 		mockAuthService.EXPECT().SendVerificationEmail(user.Name, user.Email, token).Return(nil)
-
 		reqBody, _ := json.Marshal(dto.CreateUser{
 			Name:     "John Doe",
 			Username: "johndoe",
@@ -242,10 +225,8 @@ func TestRegister(t *testing.T) {
 		})
 		req, _ := http.NewRequest(http.MethodPost, "/register", bytes.NewBuffer(reqBody))
 		req.Header.Set("Content-Type", "application/json")
-
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-
 		expectedMsg := `{"message": "An email has been sent to john@example.com. Please follow the instruction to verify your account."}`
 		assert.Equal(t, http.StatusCreated, w.Code)
 		assert.JSONEq(t, expectedMsg, w.Body.String())

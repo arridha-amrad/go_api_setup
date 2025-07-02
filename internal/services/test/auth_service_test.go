@@ -41,7 +41,7 @@ func TestCreateUser(t *testing.T) {
 		user, err := authService.CreateUser(ctx, req)
 		assert.Error(t, err)
 		assert.Nil(t, user)
-		assert.Equal(t, "username is registered", err.Error())
+		assert.Equal(t, "username has been taken", err.Error())
 	})
 
 	t.Run("it should fail if email already exists", func(t *testing.T) {
@@ -51,7 +51,7 @@ func TestCreateUser(t *testing.T) {
 		user, err := authService.CreateUser(ctx, req)
 		assert.Error(t, err)
 		assert.Nil(t, user)
-		assert.Equal(t, "email is registered", err.Error())
+		assert.Equal(t, "email has been taken", err.Error())
 	})
 
 	t.Run("it should fail if password hashing fails", func(t *testing.T) {

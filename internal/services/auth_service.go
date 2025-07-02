@@ -186,7 +186,7 @@ func (u *authService) CreateUser(ctx context.Context, req dto.CreateUser) (*mode
 		return nil, err
 	}
 	if existingUser != nil {
-		return nil, errors.New("username is registered")
+		return nil, errors.New("username has been taken")
 	}
 
 	existingUser, err = u.userRepo.GetByEmail(ctx, req.Email)
@@ -194,7 +194,7 @@ func (u *authService) CreateUser(ctx context.Context, req dto.CreateUser) (*mode
 		return nil, err
 	}
 	if existingUser != nil {
-		return nil, errors.New("email is registered")
+		return nil, errors.New("email has been taken")
 	}
 
 	hashedPassword, err := u.utility.HashPassword(req.Password)

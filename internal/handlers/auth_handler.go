@@ -79,7 +79,7 @@ func (h *authHandler) Register(c *gin.Context) {
 	}
 	user, err := h.as.CreateUser(c.Request.Context(), body)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"errors": err.Error()})
+		c.JSON(http.StatusConflict, gin.H{"errors": err.Error()})
 		return
 	}
 	token, err := h.as.GenerateToken(user.ID)
@@ -93,7 +93,9 @@ func (h *authHandler) Register(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"errors": "Something went wrong"})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"message": fmt.Sprintf("An email has been sent to %s. Please follow the instruction to verify your account.", user.Email)})
+	c.JSON(http.StatusCreated, gin.H{
+		"message": fmt.Sprintf("An email has been sent to %s. Please follow the instruction to verify your account.", user.Email)},
+	)
 }
 
 func (h *authHandler) Logout(c *gin.Context) {

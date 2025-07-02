@@ -41,7 +41,7 @@ func RegisterRoutes(db *sql.DB, validate *validator.Validate, config *config.Con
 
 	v1 := router.Group("/api/v1")
 	{
-		v1.GET("/", func(ctx *gin.Context) {
+		v1.GET("", func(ctx *gin.Context) {
 			ctx.JSON(http.StatusOK, gin.H{"message": "Welcome to V1"})
 		})
 		v1Users := v1.Group("/users")
