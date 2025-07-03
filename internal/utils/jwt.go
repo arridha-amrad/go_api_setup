@@ -25,9 +25,10 @@ func SetTokenSecretKey(key string) {
 	secretKey = key
 }
 
-func (u *utility) GenerateToken(userId uuid.UUID) (string, error) {
+func (u *utility) GenerateToken(userId, jti uuid.UUID) (string, error) {
 	claims := jwt.MapClaims{
 		"userId": userId,
+		"jti":    jti,
 		"exp":    time.Now().Add(1 * time.Hour).UnixMilli(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

@@ -9,10 +9,17 @@ import (
 
 type Config struct {
 	DB           DbConfig
+	RDB          RedisConfig
 	Port         string
 	JWtSecretKey string
 	GoogleOAuth2 GoogleOAuth2Config
 	AppUri       string
+}
+
+type RedisConfig struct {
+	ADDR     string
+	Password string
+	DB       int
 }
 
 type DbConfig struct {
@@ -46,12 +53,21 @@ func LoadEnv() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	vRedisDb, err := strconv.Atoi(os.Getenv("REDIS_DB"))
+	if err != nil {
+		return nil, err
+	}
 	cfg := &Config{
 		DB: DbConfig{
 			DbUrl:        os.Getenv("DB_URL"),
 			MaxOpenConns: vMaxOpenConns,
 			MaxIdleConns: vMaxIdleConns,
 			MaxIdleTime:  os.Getenv("DB_MAX_IDLE_TIME"),
+		},
+		RDB: RedisConfig{
+			ADDR:     os.Getenv("REDIS_ADDR"),
+			Password: os.Getenv("REDIS_PWD"),
+			DB:       vRedisDb,
 		},
 		AppUri:       os.Getenv("APP_URI"),
 		Port:         os.Getenv("PORT"),

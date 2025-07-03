@@ -196,7 +196,8 @@ func (h *authHandler) Login(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "wrong password"})
 		return
 	}
-	tokenAcc, err := h.as.GenerateToken(existingUser.ID)
+	jti := uuid.New()
+	tokenAcc, err := h.as.GenerateToken(existingUser.ID, jti)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -208,7 +209,8 @@ func (h *authHandler) Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Something went wrong"})
 		return
 	}
-	if err := h.as.StoreRefreshToken(c.Request.Context(), existingUser.ID, deviceId, hashToken); err != nil {
+
+	if err := h.as.StoreRefreshToken(c.Request.Context(), jti, existingUser.ID, deviceId, hashToken); err != nil {
 		log.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Something went wrong"})
 		return

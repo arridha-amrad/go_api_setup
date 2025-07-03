@@ -1,0 +1,71 @@
+version: "3.8"
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    environment:
+      POSTGRES_USER: golang
+      POSTGRES_PASSWORD: pg123
+      POSTGRES_DB: go_auth_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - app_network
+    restart: unless-stopped
+
+  # pgAdmin - PostgreSQL Management Tool
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    networks:
+      - app_network
+    restart: unless-stopped
+    depends_on:
+      - postgres
+
+  # Redis Server with Password and Database Index
+  redis:
+    image: redis:latest
+    container_name: redis
+    command: redis-server --requirepass redis123 --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    environment:
+      - REDIS_DB_ID=0 # Database index (0-15)
+    networks:
+      - app_network
+    restart: unless-stopped
+
+  # RedisInsight - Redis Management GUI
+  redisinsight:
+    image: redislabs/redisinsight:latest
+    container_name: redisinsight
+    ports:
+      - "8001:8001"
+    volumes:
+      - redisinsight_data:/db
+    networks:
+      - app_network
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+volumes:
+  postgres_data:
+  redis_data:
+  redisinsight_data:
+
+networks:
+  app_network:
+    driver: bridge

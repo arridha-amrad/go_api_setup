@@ -13,14 +13,22 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/redis/go-redis/v9"
 )
 
-func RegisterRoutes(db *sql.DB, validate *validator.Validate, config *config.Config) *gin.Engine {
+func RegisterRoutes(
+	db *sql.DB,
+	rdb *redis.Client,
+	validate *validator.Validate,
+	config *config.Config,
+) *gin.Engine {
 	router := gin.Default()
 
 	userRepo := repositories.NewUserRepository(db)
 	userService := services.NewUserService(userRepo)
 	userHandler := handlers.NewUserHandler(userService)
+
+	redisRepo := repositories.NewRedisRepository(rdb)
 
 	utilities := utils.NewUtilities(config.JWtSecretKey, config.AppUri, config.GoogleOAuth2)
 	tokenRepo := repositories.NewTokenRepository(db)
@@ -29,6 +37,7 @@ func RegisterRoutes(db *sql.DB, validate *validator.Validate, config *config.Con
 		userRepo,
 		utilities,
 		tokenRepo,
+		redisRepo,
 		config.AppUri,
 	)
 

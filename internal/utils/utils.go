@@ -11,7 +11,7 @@ import (
 type IUtils interface {
 	GenerateRandomBytes(size int) (string, error)
 	HashWithSHA256(randomStr string) string
-	GenerateToken(userId uuid.UUID) (string, error)
+	GenerateToken(userId, jti uuid.UUID) (string, error)
 	ValidateToken(tokenString string) (*jwt.MapClaims, error)
 	HashPassword(password string) (string, error)
 	VerifyPassword(hashedPassword, password string) error

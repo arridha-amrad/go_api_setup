@@ -18,11 +18,11 @@ import (
 
 type IAuthService interface {
 	SendVerificationEmail(name, email, token string) error
-	StoreRefreshToken(ctx context.Context, userId, deviceId uuid.UUID, hash string) error
+	StoreRefreshToken(ctx context.Context, jti, userId, deviceId uuid.UUID, hash string) error
 	DeleteRefreshToken(ctx context.Context, userId, deviceId uuid.UUID) error
 	VerifyRefreshToken(ctx context.Context, userId, deviceId uuid.UUID, token string) error
 	GenerateRefreshToken() (string, string, error)
-	GenerateToken(userId uuid.UUID) (string, error)
+	GenerateToken(userId, jti uuid.UUID) (string, error)
 	VerifyPassword(hashedPassword string, plainPassword string) bool
 	GetUserByIdentity(ctx context.Context, identity string) (*models.User, error)
 	ValidateToken(tokenString string) (*TokenPayload, error)
@@ -33,6 +33,7 @@ type authService struct {
 	appUri    string
 	userRepo  repositories.IUserRepository
 	tokenRepo repositories.ITokenRepository
+	redisRepo repositories.IRedisRepository
 	utility   utils.IUtils
 }
 
@@ -40,6 +41,7 @@ func NewAuthService(
 	userRepo repositories.IUserRepository,
 	utility utils.IUtils,
 	tokenRepo repositories.ITokenRepository,
+	redisRepo repositories.IRedisRepository,
 	appUri string,
 ) IAuthService {
 
@@ -48,6 +50,7 @@ func NewAuthService(
 		tokenRepo: tokenRepo,
 		appUri:    appUri,
 		utility:   utility,
+		redisRepo: redisRepo,
 	}
 
 }
@@ -63,13 +66,28 @@ func (s *authService) SendVerificationEmail(name, email, token string) error {
 	return nil
 }
 
-func (s *authService) StoreRefreshToken(ctx context.Context, userId, deviceId uuid.UUID, hash string) error {
-	_, err := s.tokenRepo.Insert(ctx, userId, deviceId, hash)
-	if err != nil {
+func (s *authService) StoreRefreshToken(
+	ctx context.Context,
+	jti, userId, deviceId uuid.UUID,
+	hash string) error {
+	key := fmt.Sprintf("refresh-token:%s", hash)
+	if err := s.redisRepo.HSet(key, map[string]any{
+		"userId":   userId,
+		"deviceId": deviceId,
+		"jti":      jti,
+	}, time.Hour*24*7); err != nil {
 		return err
 	}
 	return nil
 }
+
+// func (s *authService) StoreRefreshToken(ctx context.Context, userId, deviceId uuid.UUID, hash string) error {
+// 	_, err := s.tokenRepo.Insert(ctx, userId, deviceId, hash)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
 
 func (s *authService) DeleteRefreshToken(ctx context.Context, userId, deviceId uuid.UUID) error {
 	err := s.tokenRepo.Remove(ctx, userId, deviceId)
@@ -109,8 +127,8 @@ func (s *authService) GenerateRefreshToken() (string, string, error) {
 	return raw, hash, nil
 }
 
-func (s *authService) GenerateToken(userId uuid.UUID) (string, error) {
-	token, err := s.utility.GenerateToken(userId)
+func (s *authService) GenerateToken(userId, jti uuid.UUID) (string, error) {
+	token, err := s.utility.GenerateToken(userId, jti)
 	if err != nil {
 		return "", errors.New("failed to generate token")
 	}
